@@ -76,3 +76,98 @@ streiktage_am (startTag, zeitRaum, parteien) day anzahl = length $ filter (\x ->
 wird_gestreikt :: Modellszenario -> Nat1 -> Bool
 wird_gestreikt (startTag, _, parteien) i = (0<) $ (generateStrikeDays startTag parteien) !! i
 
+-------------------------
+-------------------------
+--                     --
+--                     --
+--       Part 2        --
+--                     --
+--                     --
+-------------------------
+-------------------------
+
+data Arith_Variable = A1 | A2 | A3 | A4 | A5 | A6 deriving (Eq,Show)
+data Log_Variable = L1 | L2 | L3 | L4 | L5 | L6 deriving (Eq,Show)
+
+data Arith_Ausdruck = 
+  AK Int              -- Arithmetische Konstante
+  | AV Arith_Variable -- Arithmetische Variable
+  | Plus Arith_Ausdruck Arith_Ausdruck  -- Addition
+  | Minus Arith_Ausdruck Arith_Ausdruck -- Subtraktion
+  | Mal Arith_Ausdruck Arith_Ausdruck   -- Multiplikation
+  deriving (Eq,Show)
+
+data Log_Ausdruck = 
+  LK Bool                          -- Logische Konstante
+  | LV Log_Variable                -- Logische Variable
+  | Nicht Log_Ausdruck             -- Logische Negation
+  | Und Log_Ausdruck Log_Ausdruck  -- Logische Konjunktion
+  | Oder Log_Ausdruck Log_Ausdruck -- Logische Disjunktion
+  | Gleich Arith_Ausdruck Arith_Ausdruck  -- Wertgleichheit
+                                          -- arith. Ausdruecke
+  | Kleiner Arith_Ausdruck Arith_Ausdruck -- Linker Ausdruck
+                                          -- echt wertkleiner
+                                          -- als rechter
+                                          -- Ausdruck
+  deriving (Eq,Show)
+
+type Arith_Variablenbelegung = Arith_Variable -> Int -- Total definierte Abb.
+type Log_Variablenbelegung = Log_Variable -> Bool    -- Total definierte Abb.
+type Variablenbelegung = (Arith_Variablenbelegung,Log_Variablenbelegung)
+
+links :: (Either a b) -> a
+links (Left x) = x
+
+rechts :: (Either a b) -> b
+rechts (Right y) = y
+
+class Evaluierbar a where
+  evaluiere :: a -> Variablenbelegung -> Either Int Bool
+
+instance Evaluierbar Arith_Ausdruck where
+  evaluiere (AK int) _               = Left int
+  evaluiere (AV varID) varTab = Left $ (fst varTab) varID
+  evaluiere (Plus exp1 exp2) varTab = 
+    Left $ (links $ evaluiere exp1 varTab) + (links $ evaluiere exp2 varTab)
+  evaluiere (Minus exp1 exp2) varTab = 
+    Left $ (links $ evaluiere exp1 varTab) - (links $ evaluiere exp2 varTab)
+  evaluiere (Mal exp1 exp2) varTab =
+    Left $ (links $ evaluiere exp1 varTab) * (links $ evaluiere exp2 varTab)
+
+
+instance Evaluierbar Log_Ausdruck where
+  evaluiere (LK bool) _ = Right bool
+  evaluiere (LV varID) varTab = Right $ (snd varTab) varID
+  evaluiere (Nicht exp) varTab = Right $ not $ rechts $ evaluiere exp varTab
+  evaluiere (Und exp1 exp2) varTab = 
+    Right $ (rechts $ evaluiere exp1 varTab) && (rechts $ evaluiere exp2 varTab)
+  evaluiere (Oder exp1 exp2) varTab =
+    Right $ (rechts $ evaluiere exp1 varTab) || (rechts $ evaluiere exp2 varTab)
+  evaluiere (Gleich exp1 exp2) varTab =
+    Right $ (links $ evaluiere exp1 varTab) == (links $ evaluiere exp2 varTab)
+  evaluiere (Kleiner exp1 exp2) varTab =
+    Right $ (links $ evaluiere exp1 varTab) < (links $ evaluiere exp2 varTab)
+
+-- just testing stuff
+avb = (\ av -> 3) :: Arith_Variablenbelegung
+lvb = (\ lv -> True) :: Log_Variablenbelegung
+vb1 = (avb,lvb) :: Variablenbelegung
+vb2 = (\ av -> if av == A1 then 42 else avb av,
+       \ lv -> if lv /= L6 then False else (mod (avb A3) 3 == 0)) :: Variablenbelegung
+
+aa1 = Mal (Plus (AV A1) (AV A2)) (Mal (AV A1) (AV A2))
+aa2 = AK 42
+la1 = Nicht (Kleiner aa1 aa1)
+la2 = Oder (Nicht (Gleich aa1 aa1)) (Oder (Nicht (LV L3)) (Nicht la1))
+
+tests =
+  [links (evaluiere aa1 vb1) == 54,
+  links (evaluiere aa1 vb2) == 5670,
+  links (evaluiere aa2 vb1) == 42,
+  links (evaluiere aa2 vb2) == 42,
+  rechts (evaluiere la1 vb1) == True,
+  rechts (evaluiere la1 vb2) == True,
+  rechts (evaluiere la2 vb1) == False,
+  rechts (evaluiere la2 vb2) == True]
+
+
