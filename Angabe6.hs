@@ -82,7 +82,7 @@ aa2 = AK 42
 la1 = Nicht (Kleiner aa1 aa1)
 la2 = Oder (Nicht (Gleich aa1 aa1)) (Oder (Nicht (LV L3)) (Nicht la1))
 
-tests =
+oldTests =
   [links (evaluiere aa1 vb1) == 54,
   links (evaluiere aa1 vb2) == 5670,
   links (evaluiere aa2 vb1) == 42,
@@ -123,6 +123,7 @@ Nothing  <*> _ = Nothing
   | index > 0  = rest !-! (index-1)
   | index < 0  = Nothing
 
+
 --changeElm :: [a] -> Integer -> a -> Maybe [a]
 changeElm [] 0 elm = Just [elm]
 changeElm [] _ elm = Nothing
@@ -135,29 +136,29 @@ just (Just a) = a
 interpretiere_1 :: EPS -> Anfangszustand -> Endzustand
 interpretiere_1 eps zustand = head $ interpretiere_2 eps zustand
 interpretiere_2 :: EPS -> Anfangszustand -> [Zwischenzustand] 
-interpretiere_2 eps zustand = just $ eval eps zustand 0
+interpretiere_2 eps zustand = eval eps zustand 0
 
 
-eval :: EPS -> Zustand -> Int -> Maybe [Zwischenzustand]
-eval eps zustand@(arithZustand, logZustand) i = do
-  instruction <- eps !-! i
-  case instruction of
-    AZ var exp -> 
-      (zustand:) <$> 
-        eval eps ((\x -> if var == x then links (evaluiere exp zustand) else arithZustand x),
-                  logZustand) (i+1)
-    LZ var exp -> 
-     (zustand:) <$> 
-       eval eps (arithZustand, 
-                 (\x -> if var == x then rechts (evaluiere exp zustand) else logZustand x)) (i+1)
-    FU b tAddress fAddress -> 
+eval :: EPS -> Zustand -> Int -> [Zwischenzustand]
+eval eps zustand@(arithZustand, logZustand) i =
+  case eps !-! i of
+    Just (AZ var exp) -> 
+      (zustand:)
+        (eval eps ((\x -> if var == x then links (evaluiere exp zustand) else arithZustand x),
+                  logZustand) (i+1))
+    Just (LZ var exp) -> 
+     (zustand:)
+       (eval eps (arithZustand, 
+                 (\x -> if var == x then rechts (evaluiere exp zustand) else logZustand x)) (i+1))
+    Just (FU b tAddress fAddress) -> 
       eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else fAddress
-    BS b tAddress -> eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else (i+1)
-    US address -> eval eps zustand address
-    MP address instruction -> 
+    Just (BS b tAddress) -> eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else (i+1)
+    Just (US address) -> eval eps zustand address
+    Just (MP address instruction) -> 
       case changeElm eps address instruction of
         Just newEps -> eval newEps zustand address
         Nothing -> eval eps zustand (i+1)
+    Nothing -> []
 
 
 
