@@ -1,5 +1,3 @@
-import Prelude hiding ((!!))
-
 -- The specifications from the assignment
 data Arith_Variable = A1 | A2 | A3 | A4 | A5 | A6 deriving (Eq,Show)
 data Log_Variable = L1 | L2 | L3 | L4 | L5 | L6 deriving (Eq,Show)
@@ -115,10 +113,14 @@ type EPS = Programm
 
 f <$> x = fmap f x
 
-[] !! _ = Nothing
-(head:rest) !! index 
+-- Maybe as an applicative
+(Just f) <*> x = Just $ f x
+Nothing  <*> _ = Nothing
+
+[] !-! _ = Nothing
+(head:rest) !-! index 
   | index == 0 = Just head
-  | index > 0  = rest !! (index-1)
+  | index > 0  = rest !-! (index-1)
   | index < 0  = Nothing
 
 --changeElm :: [a] -> Integer -> a -> Maybe [a]
@@ -127,25 +129,125 @@ changeElm [] _ elm = Nothing
 changeElm (_:rest) 0 elm = Just (elm:rest)
 changeElm (head:rest) i elm = (head:) <$> (changeElm rest (i-1) elm)
 
---interpretiere_1 :: EPS -> Anfangszustand -> Endzustand
---interpretiere_2 :: EPS -> Anfangszustand -> [Zwischenzustand]
+-- yuck!
+just (Just a) = a
+
+interpretiere_1 :: EPS -> Anfangszustand -> Endzustand
+interpretiere_1 eps zustand = head $ interpretiere_2 eps zustand
+interpretiere_2 :: EPS -> Anfangszustand -> [Zwischenzustand] 
+interpretiere_2 eps zustand = just $ eval eps zustand 0
 
 
 eval :: EPS -> Zustand -> Int -> Maybe [Zwischenzustand]
 eval eps zustand@(arithZustand, logZustand) i = do
-  instruction <- eps !! i
+  instruction <- eps !-! i
   case instruction of
     AZ var exp -> 
-      eval eps ((\x -> if var == x then links (evaluiere exp zustand) else arithZustand x),
-                 logZustand) (i+1)
+      (zustand:) <$> 
+        eval eps ((\x -> if var == x then links (evaluiere exp zustand) else arithZustand x),
+                  logZustand) (i+1)
     LZ var exp -> 
+     (zustand:) <$> 
        eval eps (arithZustand, 
                  (\x -> if var == x then rechts (evaluiere exp zustand) else logZustand x)) (i+1)
-
-    FU b tAddress fAddress -> eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else fAddress
+    FU b tAddress fAddress -> 
+      eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else fAddress
     BS b tAddress -> eval eps zustand $ if rechts (evaluiere b zustand) then tAddress else (i+1)
     US address -> eval eps zustand address
     MP address instruction -> 
       case changeElm eps address instruction of
         Just newEps -> eval newEps zustand address
         Nothing -> eval eps zustand (i+1)
+
+
+
+fib n 
+  | n == 0 = 0
+  | n == 1 = 1
+  | n > 0 = fib (n-2) + fib (n-1)
+  | True = n
+
+fac n | n == 0 = 1
+  | n > 0 = n * fac (n-1)
+  | True = n
+
+-- Programm pi0: Berechnung der Fakultaet fuer den Anfangswert von A1, falls
+-- dieser groesser oder gleich 0 ist, in A2:
+pi0 = [AZ A2 (AK 1),BS (Gleich (AV A1) (AK 1)) 999,
+       AZ A2 (Mal (AV A2) (AV A1)),AZ A1 (Minus (AV A1) (AK 1)),US 1]
+
+lvb0 = (\ lv -> True) :: Log_Variablenbelegung
+avb0 = (\ av -> if av == A1 then fib 4 else fib 6 - (fac 3 + 2))
+       :: Arith_Variablenbelegung
+zst0 = (avb0,lvb0) :: Anfangszustand
+
+avb1 = (\ av -> if av == A2 then 1 else avb0 av)
+avb2 = (\ av -> if av == A2 then 3 else avb0 av)
+avb3 = (\ av -> case av of A1 -> 2
+                           A2 -> 3
+                           x  -> avb0 x)
+avb4 = (\ av -> case av of A1 -> 2
+                           A2 -> 6
+                           x  -> avb0 x)
+avb5 = (\ av -> case av of A1 -> 1
+                           A2 -> 6
+                           x  -> avb0 x)
+
+-- test0 = (interpretiere_1 pi0 zst0 == (avb5,lvb0)) -- Informell, keine direkte Ausgabe
+-- am Bildschirm moeglich (s.a. A.2).
+
+-- test1 = interpretiere_2 pi0 zst0 == [(avb0,lvb0),(avb1,lvb0),(avb2,lvb0),
+--                                      (avb3,lvb0),(avb4,lvb0),(avb5,lvb0)] -- s.o.
+-- 
+-- test2 = take 2 (drop 3 (interpretiere_2 pi0 zst0)) == [(avb3,lvb0),(avb4,lvb0)] -- s.o.
+
+-- Unmittelbare Bildschirmausgaben moeglich z.B. fuer:
+tests1 = [
+  fst (interpretiere_1 pi0 zst0) A1 == 1,
+  fst (interpretiere_1 pi0 zst0) A2 == 6,
+  fst (interpretiere_1 pi0 zst0) A3 == 0,
+  fst (interpretiere_1 pi0 zst0) A4 == 0,
+  fst (interpretiere_1 pi0 zst0) A5 == 0,
+  fst (interpretiere_1 pi0 zst0) A6 == 0]
+
+tests2 = [
+  fst ((interpretiere_2 pi0 zst0) !!  0) A1 == 3,
+  fst ((interpretiere_2 pi0 zst0) !!  1) A6 == 0,
+  fst ((interpretiere_2 pi0 zst0) !!  2) A1 == 3,
+  fst ((interpretiere_2 pi0 zst0) !!  3) A2 == 3,
+  fst ((interpretiere_2 pi0 zst0) !!  4) A1 == 2,
+  fst ((interpretiere_2 pi0 zst0) !!  5) A1 == 1,
+  fst ((interpretiere_2 pi0 zst0) !!  5) A2 == 6,
+  fst ((interpretiere_2 pi0 zst0) !!  5) A3 == 0]
+
+-- -- Programm pi1: Leeres Programm
+-- pi1 = []
+-- interpretiere_1 pi1 zst0 ->> zst0 -- s.o.
+-- interpretiere_2 pi1 zst0 ->> [zst0] -- s.o.
+-- 
+-- -- Programm pi2: Selbstmodifizierendes Programm
+-- pi2 = [MP ((fib (fac 3)) - (fac (1+2) + 2)) (AZ A3 (AK (5*(fib (fac 3))+2)))]
+-- 
+-- avb6 = \ av -> 1 :: Arith_Variablenbelegung
+-- zst1 = (avb6,lvb0) :: Anfangszustand
+-- zst2 = (\ av -> if av == A1 then (fac 3) * (fib 7 - fac 3) else avb6 av,
+-- \ lv -> if lv /= L6
+-- then (True == False) && True
+-- else (mod (4 * (avb6 A3)) (2 + fac (avb6 A1)) /= 0) )
+-- :: Anfangszustand
+-- 
+-- interpretiere_1 pi2 zst1 ->> (\ av -> if av == A3 then 42 else fst zst1 av,snd zst1) -- s.o.
+-- interpretiere_2 pi1 zst1 ->> [zst1,(\ av -> if av == A3 then 42 else fst zst1 av,snd zst1)] -- s.o.
+-- interpretiere_1 pi2 zst2 == interpretiere_1 pi2 zst1
+-- interpretiere_2 pi1 zst2 == interpretiere_2 pi2 zst1
+-- 
+-- -- Programm pi3: Selbstmodifizierendes, nichtterminierendes Programm
+-- pi3 = [MP ((fac 3 + 2) - (fib (fac 3)))
+--           (BS ((fac 5) > (fib 5)) (fib (fac 3) - (fac 3 + 2)))] ++ pi0 ++ pi2
+-- interpretiere_1 pi3 zst1 ->> ‘undefiniert wg. Nichtterminierung’
+-- interpretiere_2 pi3 zst1 ->> [zst1,zst1,zst1,.. -- terminiert nicht regulaer
+-- take 5 (interpretiere_2 pi3 zst1)
+--   ->> [zst1,zst1,zst1,zst1,zst1] -- nicht unmittelbar ausgebbar, s.o.
+-- fst (take 5 (interpretiere_2 pi3 zst1) !! 3) A3 ->> ... ->> 1
+-- snd (take 5 (interpretiere_2 pi3 zst1) !! 2) L5 ->> ... ->> True
+-- 

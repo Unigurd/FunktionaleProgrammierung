@@ -26,7 +26,6 @@ dayToNat0 d =
     Sa -> 5
     So -> 6
 
--- returns a list of all but the given day
 allBut :: Wochentag -> [Wochentag]
 allBut day = filter (/=day) [Mo, Di, Mi, Do, Fr, Sa, So]
 
@@ -38,7 +37,7 @@ partyStrikes (P abstand) = strikesForDays abstand
     strikesForDays 1 = 1:(strikesForDays abstand)
     strikesForDays a = 0:(strikesForDays (a-1))
 
--- combines 2 lists of strikes by adding together the number of strikes on each day
+-- combines 2 lists of strikes
 combine2Strikes :: [StrikeNum] -> [StrikeNum] -> [StrikeNum]
 combine2Strikes a [] = a
 combine2Strikes [] b = b
@@ -48,7 +47,6 @@ combine2Strikes (a:as) (b:bs) = (a+b):(combine2Strikes as bs)
 combineStrikes :: [[StrikeNum]] -> [StrikeNum]
 combineStrikes = foldl combine2Strikes []
 
--- Removes strikes on each day in the supplied list of days, where the first day is the supplied day offset
 removeDays :: [Wochentag] -> Wochentag -> [StrikeNum] -> [StrikeNum]
 removeDays holidays offset strikes = remove daysList strikes
   where 
@@ -56,33 +54,25 @@ removeDays holidays offset strikes = remove daysList strikes
     remove h (s:ss) = (if (any (==0) h) then 0 else s):(remove ((\x -> (x-1) `mod` 7) <$> h) ss)
     remove _ [] = []
 
--- Just a quick list of partys for testing
 ps = [P 2, P 3, P 4, P 5]
 
-
--- Generates a list of numbers of strikes on each coming day
--- starting on startTag for the given parteien.
--- Takes Freitag and Sonntag into consideration
 generateStrikeDays :: Wochentag -> [Partei] -> [StrikeNum]
 generateStrikeDays startTag parteien = removeDays [Fr, So] startTag $ combineStrikes $ fmap partyStrikes parteien
 
--- Returns the number of days with at least anzahl number of strikes for the given scenario
+
 grossstreiktage :: Modellszenario -> Anzahl_Parteien -> Streiktage
 grossstreiktage (startTag, zeitRaum, parteien) anzahl = length $ filter (\x -> x >= anzahl) $ take zeitRaum $ generateStrikeDays startTag parteien
 
--- Returns the number of days with strikes for the given scenario
 streiktage :: Modellszenario -> Streiktage
 streiktage = (`grossstreiktage` 1)
 
--- Returns the number of days where all partys strike in the given scenario
 superstreiktage :: Modellszenario -> Streiktage
 superstreiktage (startTag, zeitRaum, parteien) = length $ filter (\x -> x >= (length parteien)) $ take zeitRaum $ generateStrikeDays startTag parteien
 
--- Returns the number of strikes on a given weekday for the specified scenario
+
 streiktage_am :: Modellszenario -> Wochentag -> Anzahl_Parteien -> Streiktage
 streiktage_am (startTag, zeitRaum, parteien) day anzahl = length $ filter (\x -> x >= anzahl) $ take zeitRaum $ removeDays (allBut day) startTag $ generateStrikeDays startTag parteien
 
--- True if there is a strike on day nr. i in the scenario
 wird_gestreikt :: Modellszenario -> Nat1 -> Bool
 wird_gestreikt (startTag, _, parteien) i = (0<) $ (generateStrikeDays startTag parteien) !! i
 
@@ -96,8 +86,6 @@ wird_gestreikt (startTag, _, parteien) i = (0<) $ (generateStrikeDays startTag p
 -------------------------
 -------------------------
 
-
--- The specifications from the assignment
 data Arith_Variable = A1 | A2 | A3 | A4 | A5 | A6 deriving (Eq,Show)
 data Log_Variable = L1 | L2 | L3 | L4 | L5 | L6 deriving (Eq,Show)
 
@@ -136,15 +124,9 @@ rechts (Right y) = y
 class Evaluierbar a where
   evaluiere :: a -> Variablenbelegung -> Either Int Bool
 
-
--- My own solutions
-
 instance Evaluierbar Arith_Ausdruck where
-  -- Return a constant
   evaluiere (AK int) _               = Left int
-  -- Return the value of a variable
   evaluiere (AV varID) varTab = Left $ (fst varTab) varID
-  -- return result of an expression
   evaluiere (Plus exp1 exp2) varTab = 
     Left $ (links $ evaluiere exp1 varTab) + (links $ evaluiere exp2 varTab)
   evaluiere (Minus exp1 exp2) varTab = 
@@ -154,17 +136,13 @@ instance Evaluierbar Arith_Ausdruck where
 
 
 instance Evaluierbar Log_Ausdruck where
-  -- return a constant
   evaluiere (LK bool) _ = Right bool
-  -- Return the value of a variable
   evaluiere (LV varID) varTab = Right $ (snd varTab) varID
-  -- return the value of logical expressions
   evaluiere (Nicht exp) varTab = Right $ not $ rechts $ evaluiere exp varTab
   evaluiere (Und exp1 exp2) varTab = 
     Right $ (rechts $ evaluiere exp1 varTab) && (rechts $ evaluiere exp2 varTab)
   evaluiere (Oder exp1 exp2) varTab =
     Right $ (rechts $ evaluiere exp1 varTab) || (rechts $ evaluiere exp2 varTab)
-  -- Return the value of relations on Arith_Ausdruck
   evaluiere (Gleich exp1 exp2) varTab =
     Right $ (links $ evaluiere exp1 varTab) == (links $ evaluiere exp2 varTab)
   evaluiere (Kleiner exp1 exp2) varTab =
