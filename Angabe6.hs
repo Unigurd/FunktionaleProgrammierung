@@ -24,6 +24,8 @@ data Log_Ausdruck =
                                           -- Ausdruck
   deriving (Eq,Show)
 
+
+
 type Arith_Variablenbelegung = Arith_Variable -> Int -- Total definierte Abb.
 type Log_Variablenbelegung = Log_Variable -> Bool    -- Total definierte Abb.
 type Variablenbelegung = (Arith_Variablenbelegung,Log_Variablenbelegung)
@@ -164,6 +166,79 @@ eval eps zustand@(arithZustand, logZustand) i =
 
 
 
+gib_aus_arith_Varbel :: Arith_Variablenbelegung -> [(Arith_Variable,Int)]
+gib_aus_arith_Varbel a = [(A1, a A1), (A2, a A2), (A3, a A3), (A4, a A4), (A5, a A5), (A6, a A6)] 
+gib_aus_log_Varbel :: Log_Variablenbelegung -> [(Log_Variable,Bool)]
+gib_aus_log_Varbel a = [(L1, a L1), (L2, a L2), (L3, a L3), (L4, a L4), (L5, a L5), (L6, a L6)] 
+gib_aus_Zustand :: Zustand -> ([(Arith_Variable,Int)],[(Log_Variable,Bool)])
+gib_aus_Zustand z = (gib_aus_arith_Varbel (fst z), gib_aus_log_Varbel (snd z))
+
+
+
+mygcd a 0 = a
+mygcd a b = gcd b (a-b)
+
+
+
+azst1 :: Anfangszustand
+azst1 = ((\x -> if x == A1 then 24 else if x == A2 then 60 else 0), (\x -> True))
+
+azst2A A1 = 18
+azst2A A2 = 45
+azst2A A3 = 3
+azst2A A4 = 4
+azst2A A5 = 5
+azst2A A6 = 6
+
+azst2L L1 = False
+azst2L L2 = True
+azst2L L3 = False
+azst2L L4 = True
+azst2L L5 = False
+azst2L L6 = True
+
+azst2 :: Anfangszustand
+azst2 = (azst2A, azst2L)
+
+addZustand acc (var,val) = \x -> if x == var then val else acc x
+
+genArith vals = foldl addZustand (\x -> 0) (zip [A1, A2, A3, A4, A5, A6] vals)
+genLog vals = foldl addZustand (\x -> False) (zip [L1, L2, L3, L4, L5, L6] vals)
+
+generiere :: [Int] -> [Bool] -> Zustand
+generiere as bs = (genArith as, genLog bs)
+
+
+
+
+
+
+
+
+
+
+
+
+cmp f a b var = f a var /= f b var
+
+cz a b
+  | cmp fst a b A1 = "A1"
+  | cmp fst a b A2 = "A2"
+  | cmp fst a b A3 = "A3"
+  | cmp fst a b A4 = "A4"
+  | cmp fst a b A5 = "A5"
+  | cmp fst a b A6 = "A6"
+  | cmp snd a b L1 = "L1"
+  | cmp snd a b L2 = "L2"
+  | cmp snd a b L3 = "L3"
+  | cmp snd a b L4 = "L4"
+  | cmp snd a b L5 = "L5"
+  | cmp snd a b L6 = "L6"
+  | True         = "Alt i orden"
+
+
+ca as bs = map (uncurry cz) (zip as bs)
+
 fib n 
   | n == 0 = 0
   | n == 1 = 1
@@ -231,32 +306,43 @@ tests2 = [
 
 -- Programm pi1: Leeres Programm
 pi1 = []
--- interpretiere_1 pi1 zst0 ->> zst0 -- s.o.
--- interpretiere_2 pi1 zst0 ->> [zst0] -- s.o.
+program3 = cz (interpretiere_1 pi1 zst0) zst0 -- s.o.
+program4 = ca  (interpretiere_2 pi1 zst0) [zst0] -- s.o.
 
 -- Programm pi2: Selbstmodifizierendes Programm
 pi2 = [MP ((fib (fac 3)) - (fac (1+2) + 2)) (AZ A3 (AK (5*(fib (fac 3))+2)))]
 
-avb6 = \ av -> 1 :: Arith_Variablenbelegung
+avb6 = (\ av -> 1) :: Arith_Variablenbelegung
 zst1 = (avb6,lvb0) :: Anfangszustand
 zst2 = (\ av -> if av == A1 then (fac 3) * (fib 7 - fac 3) else avb6 av,
-\ lv -> if lv /= L6
-then (True == False) && True
-else (mod (4 * (avb6 A3)) (2 + fac (avb6 A1)) /= 0) )
-:: Anfangszustand
+        \ lv -> if lv /= L6
+                then (True == False) && True
+                else (mod (4 * (avb6 A3)) (2 + fac (avb6 A1)) /= 0) )
+                :: Anfangszustand
 
-interpretiere_1 pi2 zst1 ->> (\ av -> if av == A3 then 42 else fst zst1 av,snd zst1) -- s.o.
-interpretiere_2 pi1 zst1 ->> [zst1,(\ av -> if av == A3 then 42 else fst zst1 av,snd zst1)] -- s.o.
-interpretiere_1 pi2 zst2 == interpretiere_1 pi2 zst1
-interpretiere_2 pi1 zst2 == interpretiere_2 pi2 zst1
+program5 = cz (interpretiere_1 pi2 zst1) (\ av -> if av == A3 then 42 else fst zst1 av,snd zst1) -- s.o.
+program6 = ca (interpretiere_2 pi1 zst1) [zst1, (\ av -> if av == A3 then 42 else fst zst1 av,snd zst1)] -- s.o.
+program7 = cz (interpretiere_1 pi2 zst2) (interpretiere_1 pi2 zst1)
+program8 = ca (interpretiere_2 pi1 zst2) (interpretiere_2 pi2 zst1)
 
 -- Programm pi3: Selbstmodifizierendes, nichtterminierendes Programm
-pi3 = [MP ((fac 3 + 2) - (fib (fac 3)))
-          (BS ((fac 5) > (fib 5)) (fib (fac 3) - (fac 3 + 2)))] ++ pi0 ++ pi2
-interpretiere_1 pi3 zst1 ->> ‘undefiniert wg. Nichtterminierung’
-interpretiere_2 pi3 zst1 ->> [zst1,zst1,zst1,.. -- terminiert nicht regulaer
-take 5 (interpretiere_2 pi3 zst1)
-  ->> [zst1,zst1,zst1,zst1,zst1] -- nicht unmittelbar ausgebbar, s.o.
-fst (take 5 (interpretiere_2 pi3 zst1) !! 3) A3 ->> ... ->> 1
-snd (take 5 (interpretiere_2 pi3 zst1) !! 2) L5 ->> ... ->> True
+-- pi3 = [MP ((fac 3 + 2) - (fib (fac 3)))
+--           (BS ((fac 5) > (fib 5)) (fib (fac 3) - (fac 3 + 2)))] ++ pi0 ++ pi2
+-- interpretiere_1 pi3 zst1 ->> ‘undefiniert wg. Nichtterminierung’
+-- interpretiere_2 pi3 zst1 ->> [zst1,zst1,zst1,.. -- terminiert nicht regulaer
+-- take 5 (interpretiere_2 pi3 zst1)
+--   ->> [zst1,zst1,zst1,zst1,zst1] -- nicht unmittelbar ausgebbar, s.o.
+-- program9 = fst (take 5 (interpretiere_2 pi3 zst1) !! 3) A3 == 1
+-- program10 = snd (take 5 (interpretiere_2 pi3 zst1) !! 2) L5 == True
 
+
+
+
+
+avba2 = (\ av -> 42) :: Arith_Variablenbelegung
+lvba2 = (\ lv -> True) :: Log_Variablenbelegung
+zst = (avba2,lvba2) :: Zustand
+a21 = gib_aus_arith_Varbel avba2 == [(A1,42),(A2,42),(A3,42),(A4,42),(A5,42),(A6,42)]
+a22 = gib_aus_log_Varbel lvba2 == [(L1,True),(L2,True),(L3,True),(L4,True),(L5,True),(L6,True)]
+a23 = gib_aus_Zustand zst == ([(A1,42),(A2,42),(A3,42),(A4,42),(A5,42),(A6,42)], [(L1,True),(L2,True),(L3,True),(L4,True),(L5,True),(L6,True)])
+a24 = gib_aus_Zustand (interpretiere_1 pi2 zst1) ==  ([(A1,1),(A2,1),(A3,42),(A4,1),(A5,1),(A6,1)], [(L1,True),(L2,True),(L3,True),(L4,True),(L5,True),(L6,True)])
