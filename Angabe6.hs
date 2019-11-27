@@ -174,14 +174,127 @@ gib_aus_Zustand :: Zustand -> ([(Arith_Variable,Int)],[(Log_Variable,Bool)])
 gib_aus_Zustand z = (gib_aus_arith_Varbel (fst z), gib_aus_log_Varbel (snd z))
 
 
+mygcd :: Int -> Int -> [Int]
+mygcd a 0 = [a]
+mygcd a b = a:(mygcd b (a `mymod` b))
 
-mygcd a 0 = a
-mygcd a b = gcd b (a-b)
+mymod :: Int -> Int -> Int
+mymod a b = if (a < b) then a else mymod (a-b) b
+
+myfib n = fibRec 0 1 $ if n < 0 then (-n) else n
+  where
+    fibRec a b 0 = a
+    fibRec a b n = fibRec b (a+b) (n-1)
+
+negationAddress, compStepAddress :: Int
+negationAddress = 4
+compStepAddress = 6
+
+fibo :: EPS
+fibo = [AZ A6 (AK 0),
+        AZ A5 (AK 1),
+        LZ L1 (LK True),
+        FU (Kleiner (AV A1) (AK 0)) negationAddress compStepAddress,
+        AZ A1 (Minus (AK 0) (AV A1)),
+        LZ L1 (LK False),
+        BS (Gleich (AV A1) (AK 0)) 9999,
+        AZ A4 (Plus (AV A6) (AV A5)),
+        AZ A6 (AV A5),
+        AZ A5 (AV A4),
+        AZ A1 (Minus (AV A1) (AK 1)),
+        US compStepAddress]
+
+fibovb0 = (generiere [0] [])
+fibovb1 = (generiere [1] [])
+fibovb2 = (generiere [2] [])
+fibovb3 = (generiere [3] [])
+fibovb4 = (generiere [4] [])
+fibovb5 = (generiere [5] [])
+fibovb6 = (generiere [6] [])
+fibovb7 = (generiere [7] [])
+
+fibovbn1 = (generiere [-1] [])
+fibovbn2 = (generiere [-2] [])
+fibovbn3 = (generiere [-3] [])
+fibovbn4 = (generiere [-4] [])
+fibovbn5 = (generiere [-5] [])
+fibovbn6 = (generiere [-6] [])
+fibovbn7 = (generiere [-7] [])
+
+fres0 = showRes2 fibo fibovb0
+fres1 = showRes2 fibo fibovb1
+fres2 = showRes2 fibo fibovb2
+fres3 = showRes2 fibo fibovb3
+fres4 = showRes2 fibo fibovb4
+fres5 = showRes2 fibo fibovb5
+fres6 = showRes2 fibo fibovb6
+fres7 = showRes2 fibo fibovb7
+
+fresn1 = showRes2 fibo fibovbn1
+fresn2 = showRes2 fibo fibovbn2
+fresn3 = showRes2 fibo fibovbn3
+fresn4 = showRes2 fibo fibovbn4
+fresn5 = showRes2 fibo fibovbn5
+fresn6 = showRes2 fibo fibovbn6
+fresn7 = showRes2 fibo fibovbn7
+
+-- put a1 in a3
+-- if A2 == 0 then stop
+-- else put A2 in a1 and put (a3 - a1) in a2
+-- jump to start
+ggt :: EPS
+ggt = [AZ A3 (AV A1),
+       BS (Gleich (AV A2) (AK 0)) 9999,
+       AZ A1 (AV A2),
+       AZ A2 (AV A3),
+       AZ A2 (Minus (AV A2) (AV A1)),
+       FU (Kleiner (AV A2) (AV A1)) 0 4]
+
+showRes2 program vb = sequence $ putStrLn <$> (show <$> (gib_aus_Zustand <$> interpretiere_2 program vb))
 
 
+-- lvb0 = (\ lv -> True) :: Log_Variablenbelegung
+ggtvb1 = (generiere [15::Int,10::Int] [])
+res1 = showRes2 ggt ggtvb1
+
+ggtvb2 = (generiere [16::Int,12::Int] [])
+res2 = showRes2 ggt ggtvb2
+
+ggtvb3 = (generiere [21::Int,14::Int] [])
+res3 = showRes2 ggt ggtvb3
 
 azst1 :: Anfangszustand
 azst1 = ((\x -> if x == A1 then 24 else if x == A2 then 60 else 0), (\x -> True))
+
+
+-- data Arith_Ausdruck = 
+--   AK Int              -- Arithmetische Konstante
+--   | AV Arith_Variable -- Arithmetische Variable
+--   | Plus Arith_Ausdruck Arith_Ausdruck  -- Addition
+--   | Minus Arith_Ausdruck Arith_Ausdruck -- Subtraktion
+--   | Mal Arith_Ausdruck Arith_Ausdruck   -- Multiplikation
+--   deriving (Eq,Show)
+-- 
+-- data Log_Ausdruck = 
+--   LK Bool                          -- Logische Konstante
+--   | LV Log_Variable                -- Logische Variable
+--   | Nicht Log_Ausdruck             -- Logische Negation
+--   | Und Log_Ausdruck Log_Ausdruck  -- Logische Konjunktion
+--   | Oder Log_Ausdruck Log_Ausdruck -- Logische Disjunktion
+--   | Gleich Arith_Ausdruck Arith_Ausdruck  -- Wertgleichheit
+--                                           -- arith. Ausdruecke
+--   | Kleiner Arith_Ausdruck Arith_Ausdruck -- Linker Ausdruck
+--                                           -- echt wertkleiner
+
+-- data Anweisung = 
+--    AZ Arith_Variable Arith_Ausdruck               -- Wertzuweisung an arithmetische Variable
+--   | LZ Log_Variable Log_Ausdruck                  -- Wertzuweisung an logische Variable
+--   | FU Log_Ausdruck Sprungadresse Sprungadresse   -- Fallunterscheidung
+--   | BS Log_Ausdruck Sprungadresse                 -- Bedingter Sprung
+--   | US Sprungadresse                              -- Unbedingter Sprung
+--   | MP Adresse Anweisung                          -- Selbstmodifikation des Programms
+-- 
+-- 
 
 azst2A A1 = 18
 azst2A A2 = 45
